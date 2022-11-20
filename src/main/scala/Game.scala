@@ -62,10 +62,31 @@ object Game {
 
   }
 
-  def trade(model: Model, itemType: ItemType, count: Int): Model = {
+  def trade(model: Model, itemType: ItemType, count: Int): Either[TradeError, Model] = {
     trade_(model.player, model.shop, itemType, count) match {
-      case Left(_) => model
-      case Right((player, shop: Shop)) => model.copy(player = player, shop = shop)
+      case Left(e) => Left(e)
+      case Right((player, shop: Shop)) => Right(model.copy(player = player, shop = shop))
     }
   }
+
+  def safeTrade(model: Model, itemType: ItemType, count: Int): Model = trade(model, itemType, count).getOrElse(model)
+
+  sealed trait GameCommand
+
+  case object QuitCommand extends GameCommand
+
+  case class TradeCommand(itemType: ItemType, count: Int) extends GameCommand
+
+  def execute_(gameCommand: GameCommand, model: Model): Either[String, Model] = {
+    gameCommand match {
+      case QuitCommand => Right(model)
+      case TradeCommand(itemType, count) => trade(model, itemType, count) match {
+        case Left(te) => Left(te.toString())
+        case Right(m) => Right(progressTime(m)(1))
+      }
+    }
+  }
+
+  def safeExecute(gameCommand: GameCommand, model: Model): Model = execute_(gameCommand, model).getOrElse(model)
+
 }
